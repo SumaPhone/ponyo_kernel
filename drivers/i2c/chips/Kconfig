@@ -1,0 +1,83 @@
+#
+# Miscellaneous I2C chip drivers configuration
+#
+# *** DEPRECATED! Do not add new entries! See Makefile ***
+#
+
+menu "Miscellaneous I2C Chip support"
+
+config SENSORS_MT9T013
+	tristate "MT9T013 Camera Driver"
+	depends on I2C
+	default y
+	help
+	 MT9T013 Camera Driver implemented by HTC.
+# + qiukj add for bma222 
+config BOSCH_BMA222
+        tristate "BMA222 acceleration sensor support"
+        depends on I2C=y
+        help
+          If you say yes here you get support for Bosch Sensortec's
+          acceleration sensors BMA222.
+
+config BOSCH_BMA222_USE_SMBUS
+        tristate "BMA222 acceleration sensor use smbus"
+        depends on BOSCH_BMA222=y
+        help
+          If you say yes here you use smbus for Bosch Sensortec's
+          acceleration sensors BMA222.
+
+config BOSCH_BMA222_WITH_DEBUG
+        tristate "BMA222 acceleration sensor with debug imformation"
+        depends on BOSCH_BMA222=y
+        help
+          If you say yes here you get debug imformation for Bosch Sensortec's
+          acceleration sensors BMA222.
+
+config BOSCH_BMA222_HAS_EARLYSUSPEND
+        tristate "BMA222 acceleration sensor has early suspend and late resume"
+        depends on BOSCH_BMA222=y
+        help
+          If you say yes here you get has early suspend and late resume for Bosch Sensortec's
+          acceleration sensors BMA222.
+# - qiukj add for bma222
+
+# + qiukj add for bma250
+config BOSCH_BMA250
+	tristate "BMA250 acceleration sensor support"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for Bosch Sensortec's 
+	  acceleration sensors BMA250.
+
+config BOSCH_BMA250_ENABLE_IRQ
+	tristate "BMA250 acceleration sensor interrupt support"
+	depends on BOSCH_BMA250=y
+	help
+	  If you say yes here you get interrupt support for Bosch Sensortec's 
+	  acceleration sensors BMA250.
+
+config BOSCH_BMA250_USE_SMBUS
+	tristate "BMA250 acceleration sensor use smbus"
+	depends on BOSCH_BMA250=y
+	help
+	  If you say yes here you use smbus for Bosch Sensortec's 
+	  acceleration sensors BMA250.
+
+config BOSCH_BMA250_WITH_DEBUG
+	tristate "BMA250 acceleration sensor with debug imformation"
+	depends on BOSCH_BMA250=y
+	help
+	  If you say yes here you get debug imformation for Bosch Sensortec's 
+	  acceleration sensors BMA250.
+
+config BOSCH_BMA250_HAS_EARLYSUSPEND
+	tristate "BMA250 acceleration sensor has early suspend and late resume"
+	depends on BOSCH_BMA250=y
+	help
+	  If you say yes here you get has early suspend and late resume for Bosch Sensortec's 
+	  acceleration sensors BMA250.
+# - qiukj add for bma250
+
+
+endmenu

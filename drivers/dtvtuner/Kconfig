@@ -1,0 +1,7 @@
+menu "PMC MB86A29T 1seg DTV Tuner"
+    config DTVTUNER_DRIVER
+    tristate "PMC MB86A29T 1seg DTV Tuner"
+    help
+        This enables the PMC MB86A29T 1seg DTV Tuner for Laputa
+
+endmenu
