@@ -117,15 +117,15 @@
 #include "msm-keypad-devices.h" 
 
 //[SIMT-huangli-110718] common part for bma device
-#include "../../../../kernel/drivers/i2c/chips/bma_common.h"
+#include "../../../drivers/i2c/chips/bma_common.h"
 
 #ifdef CONFIG_BOSCH_BMA222
-#include "../../../../kernel/drivers/i2c/chips/bma222.h"
+#include "../../../drivers/i2c/chips/bma222.h"
 #endif
 
 
 #ifdef CONFIG_BOSCH_BMA250
-#include "../../../../kernel/drivers/i2c/chips/bma250.h"
+#include "../../../drivers/i2c/chips/bma250.h"
 #endif
 
 
