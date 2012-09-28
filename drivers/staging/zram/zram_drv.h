@@ -18,7 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 
-#include "sub-projects/allocators/xvmalloc-kmod/xvmalloc.h"
+#include "xvmalloc.h"
 
 /*
  * Some arbitrary value. This is just to catch
