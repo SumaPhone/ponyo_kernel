@@ -176,4 +176,11 @@ config GENLOCK
 	  Enable a generic cross-process locking API to provide protection
 	  for shared memory objects such as graphics buffers.
 
+config GENLOCK_MISCDEVICE
+	bool "Enable a misc-device for userspace to access the genlock engine"
+	depends on GENLOCK
+	help
+	Create a miscdevice for the purposes of allowing userspace to create
+	and interact with locks created using genlock.
+
 endmenu
