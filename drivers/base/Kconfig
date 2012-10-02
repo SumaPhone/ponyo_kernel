@@ -169,4 +169,11 @@ config SYS_HYPERVISOR
 	bool
 	default n
 
+config GENLOCK
+	bool "Enable a generic cross-process locking mechanism"
+	depends on ANON_INODES
+	help
+	  Enable a generic cross-process locking API to provide protection
+	  for shared memory objects such as graphics buffers.
+
 endmenu
