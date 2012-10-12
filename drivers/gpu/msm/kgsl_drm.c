@@ -293,7 +293,6 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 		}
 
 		priv->memdesc.size = obj->size * priv->bufcount;
-		priv->memdesc.ops = &kgsl_contiguous_ops;
 
 	} else if (TYPE_IS_MEM(priv->type)) {
 		priv->memdesc.hostptr =
@@ -1688,3 +1687,4 @@ void kgsl_drm_exit(void)
 {
 	drm_exit(&driver);
 }
+
