@@ -331,4 +331,3 @@ struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
 	.mmu_pt_get_flags = NULL,
 };
-

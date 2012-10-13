@@ -13,6 +13,7 @@
  */
 #include <linux/interrupt.h>
 #include <linux/err.h>
+#include <mach/msm_bus.h>
 #include <mach/msm_iomap.h>
 
 #include "kgsl.h"
@@ -46,9 +47,9 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 				clk_set_rate(pwr->ebi1_clk,
 					pwr->pwrlevels[pwr->active_pwrlevel].
 					bus_freq);
-//			pm_qos_update_request(PM_QOS_SYSTEM_BUS_FREQ,
-//				pwr->pwrlevels[pwr->active_pwrlevel].
-//				bus_freq);
+			else if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+					pwr->pwrlevels[pwr->active_pwrlevel].bus_freq);
 		}
 		KGSL_PWR_WARN(device, "kgsl pwr level changed to %d\n",
 					  pwr->active_pwrlevel);
@@ -355,17 +356,18 @@ void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 				clk_set_rate(pwr->ebi1_clk, 0);
 				clk_disable(pwr->ebi1_clk);
 			}
-//			pm_qos_update_request(PM_QOS_SYSTEM_BUS_FREQ,
-//				PM_QOS_DEFAULT_VALUE);
+			if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+								    0);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
 			&pwr->power_flags)) {
 			KGSL_PWR_INFO(device,
 				"axi on, device %d\n", device->id);
-//			pm_qos_update_request(PM_QOS_SYSTEM_BUS_FREQ,
-//				pwr->pwrlevels[pwr->active_pwrlevel].
-//				bus_freq);
+			if (pwr->pcl)
+				msm_bus_scale_client_update_request(pwr->pcl,
+					pwr->pwrlevels[pwr->active_pwrlevel].bus_freq);
 			if (pwr->ebi1_clk) {
 				clk_enable(pwr->ebi1_clk);
 				clk_set_rate(pwr->ebi1_clk,
@@ -487,6 +489,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 					   gpu_freq) : 0;
 		pwr->pwrlevels[i].bus_freq =
 			pdata_pwr->pwrlevel[i].bus_freq;
+		pwr->pwrlevels[i].io_fraction =
+			pdata_pwr->pwrlevel[i].io_fraction;
 	}
 	/* Do not set_rate for targets in sync with AXI */
 	if (pwr->pwrlevels[0].gpu_freq > 0)
@@ -515,7 +519,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 					 pwr->pwrlevels[pwr->active_pwrlevel].
 						bus_freq);
 
-//	pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
+//	pm_qos_add_request(&device->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
 //				PM_QOS_DEFAULT_VALUE);
 
 	/*acquire interrupt */
@@ -560,7 +564,7 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	clk_put(pwr->ebi1_clk);
 
-//	pm_qos_remove_request(PM_QOS_SYSTEM_BUS_FREQ);
+	pm_qos_remove_request(&device->pm_qos_req_dma);
 
 	pwr->pcl = 0;
 
@@ -687,8 +691,8 @@ clk_off:
 	device->state = device->requested_state;
 	device->requested_state = KGSL_STATE_NONE;
 	wake_unlock(&device->idle_wakelock);
-//	pm_qos_update_request(PM_QOS_CPU_DMA_LATENCY,
-//				PM_QOS_DEFAULT_VALUE);
+	pm_qos_update_request(&device->pm_qos_req_dma,
+				PM_QOS_DEFAULT_VALUE);
 	KGSL_PWR_WARN(device, "state -> NAP/SLEEP(%d), device %d\n",
 				  device->state, device->id);
 
@@ -721,8 +725,8 @@ void kgsl_pwrctrl_wake(struct kgsl_device *device)
 				jiffies + device->pwrctrl.interval_timeout);
 
 	wake_lock(&device->idle_wakelock);
-//	pm_qos_update_request(PM_QOS_CPU_DMA_LATENCY,
-//					GPU_SWFI_LATENCY);
+	pm_qos_update_request(&device->pm_qos_req_dma,
+					GPU_SWFI_LATENCY);
 	KGSL_PWR_INFO(device, "wake return for device %d\n", device->id);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_wake);
@@ -744,4 +748,3 @@ void kgsl_pwrctrl_disable(struct kgsl_device *device)
 	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_OFF);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_disable);
-

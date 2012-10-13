@@ -23,7 +23,6 @@
 
 #define KGSL_PWRLEVEL_TURBO 0
 #define KGSL_PWRLEVEL_NOMINAL 1
-#define KGSL_PWRLEVEL_LOW_OFFSET 2
 
 #define KGSL_MAX_CLKS 5
 
@@ -85,4 +84,3 @@ static inline unsigned long kgsl_get_clkrate(struct clk *clk)
 }
 
 #endif /* __KGSL_PWRCTRL_H */
-

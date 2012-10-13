@@ -268,7 +268,6 @@ void kgsl_pwrscale_policy_remove_files(struct kgsl_device *device,
 	sysfs_remove_group(&pwrscale->kobj, attr_group);
 	kobject_del(&pwrscale->kobj);
 	kobject_put(&pwrscale->kobj);
-	pwrscale->kobj.state_initialized = 0;
 }
 
 static void _kgsl_pwrscale_detach_policy(struct kgsl_device *device)
@@ -337,4 +336,3 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	kobject_put(&device->pwrscale_kobj);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_close);
-

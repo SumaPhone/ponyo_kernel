@@ -23,6 +23,7 @@
 #include "kgsl_mmu.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
+#include "adreno_postmortem.h"
 
 #define KGSL_MMU_ALIGN_SHIFT    13
 #define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
@@ -718,4 +719,3 @@ void kgsl_mmu_set_mmutype(char *mmutype)
 		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 }
 EXPORT_SYMBOL(kgsl_mmu_set_mmutype);
-
