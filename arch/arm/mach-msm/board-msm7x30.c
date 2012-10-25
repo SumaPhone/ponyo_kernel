@@ -4113,19 +4113,19 @@ static struct android_usb_platform_data android_usb_pdata = {
 //chenping add for ponyo pidvid 20110721
 #ifdef CONFIG_PONYO_DOCOMO_USB_PID_VID
 	.vendor_id	= 0x04DA,
-        .product_id      = 0x21F8,
+	.product_id      = 0x21F8,
 #else
 	.vendor_id	= 0x05C6,
 	.product_id	= 0x9026,
 #endif
 	.version	= 0x0100,
-        #ifdef CONFIG_PONYO_DOCOMO_USB_PID_VID
+#ifdef CONFIG_PONYO_DOCOMO_USB_PID_VID
 	.product_name		= "FOMA P01D",
 	.manufacturer_name	= "Panasonic Mobile Communications Co Ltd",
-        #else
+#else
 	.product_name		= "Qualcomm HSUSB Device",
 	.manufacturer_name	= "Qualcomm Incorporated",
-	#endif
+#endif
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
 	.num_functions = ARRAY_SIZE(usb_functions_all),
