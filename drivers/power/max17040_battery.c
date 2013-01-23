@@ -452,8 +452,8 @@ static int max17040_get_property(struct power_supply *psy,
 /*********************************************************/
 int boot_complete = 0;
 struct i2c_client * max17040_client;
-#define GAUGE_SOC_PATH      "/system/etc/gauge.soc"
-#define GAUGE_VCELL_PATH      "/system/etc/gauge.vcell"
+#define GAUGE_SOC_PATH      "/data/simcom/battery/gauge.soc"
+#define GAUGE_VCELL_PATH      "/data/simcom/battery/gauge.vcell"
 #define  MAX17040_FILE_OPTION_SUCCESS       0
 #define  MAX17040_ABS(x)        ((x>=0)?x:(0-x))
 #define MAX17040_SOC_ERROR      7680 //capacity 15%
@@ -528,7 +528,7 @@ void reset_max17040(void)
 
     filp = filp_open(GAUGE_VCELL_PATH, O_RDONLY, 0777);
     if(IS_ERR(filp)) 
-          printk("max17040 :error occured while opening file %s, exiting...\n",GAUGE_SOC_PATH);   
+          printk("max17040 :error occured while opening file %s, exiting...\n",GAUGE_VCELL_PATH);   
     else
     {
         if(max17040_read_file(filp, &temp_soc) == MAX17040_FILE_OPTION_SUCCESS)
@@ -582,14 +582,14 @@ static void max17040_work(struct work_struct *work)
       {
           filp = filp_open(GAUGE_SOC_PATH, O_RDWR|O_CREAT, 0777);
           if(IS_ERR(filp)) 
-            printk("max17040 :error occured while opening file /data/simcom/gauge.soc, exiting...\n");   
+            printk("max17040 :error occured while opening file %s, exiting...\n", GAUGE_SOC_PATH);   
           else
           {
                max17040_write_file(filp,chip->soc);
           }
           filp = filp_open(GAUGE_VCELL_PATH, O_RDWR|O_CREAT, 0777);
           if(IS_ERR(filp)) 
-            printk("max17040 :error occured while opening file /data/simcom/gauge.soc, exiting...\n");   
+            printk("max17040 :error occured while opening file %s, exiting...\n", GAUGE_VCELL_PATH);
           else
           {
                max17040_write_file(filp,chip->vcell);
