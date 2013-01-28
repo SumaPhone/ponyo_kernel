@@ -20,7 +20,7 @@
  * this needs to be before <linux/kernel.h> is loaded,
  * and <linux/sched.h> loads <linux/kernel.h>
  */
-#define DEBUG  1
+#define DEBUG  0
 
 #include <linux/slab.h>
 #include <linux/earlysuspend.h>
@@ -34,9 +34,9 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 
+#include <asm/atomic.h>
 #include <asm/gpio.h> //[SIMCOM-liyueyi-20111008]
 
-#include <asm/atomic.h>
 #ifdef CONFIG_BATTERY_MAX17040
 #include <linux/i2c.h>
 #include <linux/max17040_battery.h>
@@ -252,6 +252,7 @@ static union rpc_reply_batt_chg rep_batt_chg;
 struct msm_battery_info {
 	u32 voltage_max_design;
 	u32 voltage_min_design;
+	u32 voltage_fail_safe;
 	u32 chg_api_version;
 	u32 batt_technology;
 	u32 batt_api_version;
@@ -413,7 +414,7 @@ static int msm_batt_power_get_property(struct power_supply *psy,
 #endif
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = msm_batt_capacity(msm_batt_get_vbatt_voltage());
+		val->intval = msm_batt_info.batt_capacity;
 		break;
 #ifdef SIMCUST_BATT	/*temperature for CIT */
 	case POWER_SUPPLY_PROP_TEMP:
@@ -434,7 +435,7 @@ static int msm_batt_power_get_property(struct power_supply *psy,
               val->intval = gpio_get_value(CHARGE_OVP_GPIO); 
               break;
 #endif
-	default: 
+	default:
 		return -EINVAL;
 	}
 	return 0;
@@ -747,7 +748,7 @@ static void msm_batt_update_psy_status(void)
 	u32	battery_status;
 	u32	battery_level;
 	u32     battery_voltage;
-	s32	battery_temp;
+	u32	battery_temp;
 	struct	power_supply	*supp;
 #ifdef SIMCUST_BATT
 	struct battery_adc_params_data adc_params; /*added by liyueyi for get battery parameters*/
@@ -788,14 +789,14 @@ static void msm_batt_update_psy_status(void)
 		 */
 		unnecessary_event_count++;
 		if ((unnecessary_event_count % 20) == 1)
-			printk("BATT: same event count = %u\n",
+			DBG_LIMIT("BATT: same event count = %u\n",
 				 unnecessary_event_count);
 		return;
 	}
 
 	unnecessary_event_count = 0;
 
-	printk("BATT: rcvd: %d, %d, %d, %d; %d, %d\n",
+	DBG_LIMIT("BATT: rcvd: %d, %d, %d, %d; %d, %d\n",
 		 charger_status, charger_type, battery_status,
 		 battery_level, battery_voltage, battery_temp);
 
@@ -807,13 +808,13 @@ static void msm_batt_update_psy_status(void)
 	}
 
 	if (msm_batt_info.charger_type != charger_type) {
-		if (charger_type == CHARGER_TYPE_USB_PC ||
+		if (charger_type == CHARGER_TYPE_USB_WALL ||
+		    charger_type == CHARGER_TYPE_USB_PC ||
 		    charger_type == CHARGER_TYPE_USB_CARKIT) {
 			DBG_LIMIT("BATT: USB charger plugged in\n");
 			msm_batt_info.current_chg_source = USB_CHG;
 			supp = &msm_psy_usb;
-		} else if (charger_type == CHARGER_TYPE_USB_WALL ||
-		              charger_type == CHARGER_TYPE_WALL) {
+		} else if (charger_type == CHARGER_TYPE_WALL) {
 			DBG_LIMIT("BATT: AC Wall changer plugged in\n");
 			msm_batt_info.current_chg_source = AC_CHG;
 			supp = &msm_psy_ac;
@@ -887,8 +888,8 @@ static void msm_batt_update_psy_status(void)
 			battery_voltage = msm_batt_info.battery_voltage;
 	}
 	if (battery_status == BATTERY_STATUS_INVALID) {
-		if (battery_voltage >= (msm_batt_info.voltage_min_design-100) &&
-		    battery_voltage < msm_batt_info.voltage_max_design) {
+		if (battery_voltage >= msm_batt_info.voltage_min_design &&
+		    battery_voltage <= msm_batt_info.voltage_max_design) {
 			DBG_LIMIT("BATT: Battery valid\n");
 			msm_batt_info.batt_valid = 1;
 			battery_status = BATTERY_STATUS_GOOD;
@@ -1091,15 +1092,19 @@ void msm_batt_early_suspend(struct early_suspend *h)
 //[SIMT-liyueyi-20110825]
         if(msm_batt_info.batt_status == POWER_SUPPLY_STATUS_CHARGING)
         {
-		rc = msm_batt_modify_client(msm_batt_info.batt_handle,
-				BATTERY_FULL, BATTERY_VOLTAGE_ABOVE_THIS_LEVEL,
-			       BATTERY_CB_ID_ALL_ACTIV, BATTERY_FULL);        
+		    rc = msm_batt_modify_client(msm_batt_info.batt_handle,
+                    BATTERY_FULL,
+                    BATTERY_VOLTAGE_ABOVE_THIS_LEVEL,
+                    BATTERY_CB_ID_ALL_ACTIV,
+                    BATTERY_FULL);
         }
         else
         {
-		rc = msm_batt_modify_client(msm_batt_info.batt_handle,
-				BATTERY_LOW, BATTERY_VOLTAGE_BELOW_THIS_LEVEL,
-				BATTERY_CB_ID_LOW_VOL, BATTERY_LOW);
+		    rc = msm_batt_modify_client(msm_batt_info.batt_handle,
+                    msm_batt_info.voltage_fail_safe,
+                    BATTERY_VOLTAGE_BELOW_THIS_LEVEL,
+                    BATTERY_CB_ID_LOW_VOL,
+                    msm_batt_info.voltage_fail_safe);
         }
 
 		if (rc < 0) {
@@ -1123,8 +1128,9 @@ void msm_batt_late_resume(struct early_suspend *h)
 
 	if (msm_batt_info.batt_handle != INVALID_BATT_HANDLE) {
 		rc = msm_batt_modify_client(msm_batt_info.batt_handle,
-				BATTERY_LOW, BATTERY_ALL_ACTIVITY,
-			       BATTERY_CB_ID_ALL_ACTIV, BATTERY_ALL_ACTIVITY);
+                msm_batt_info.voltage_fail_safe,
+                BATTERY_ALL_ACTIVITY,
+                BATTERY_CB_ID_ALL_ACTIV, BATTERY_ALL_ACTIVITY);
 		if (rc < 0) {
 			pr_err("%s: msm_batt_modify_client FAIL rc=%d\n",
 			       __func__, rc);
@@ -1523,7 +1529,7 @@ static u32 msm_batt_capacity(u32 current_voltage)
 		return 100;
 	else
 		return (current_voltage - low_voltage) * 100
-			/ (high_voltage - low_voltage - 100);
+			/ (high_voltage - low_voltage);
 }
 
 #ifndef CONFIG_BATTERY_MSM_FAKE
@@ -1712,6 +1718,8 @@ static int __devinit msm_batt_probe(struct platform_device *pdev)
 
 	msm_batt_info.voltage_max_design = pdata->voltage_max_design;
 	msm_batt_info.voltage_min_design = pdata->voltage_min_design;
+	msm_batt_info.voltage_fail_safe  = pdata->voltage_fail_safe;
+
 	msm_batt_info.batt_technology = pdata->batt_technology;
 	msm_batt_info.calculate_capacity = pdata->calculate_capacity;
 
@@ -1719,6 +1727,8 @@ static int __devinit msm_batt_probe(struct platform_device *pdev)
 		msm_batt_info.voltage_min_design = BATTERY_LOW;
 	if (!msm_batt_info.voltage_max_design)
 		msm_batt_info.voltage_max_design = BATTERY_HIGH;
+	if (!msm_batt_info.voltage_fail_safe)
+		msm_batt_info.voltage_fail_safe  = BATTERY_LOW;
 
 	if (msm_batt_info.batt_technology == POWER_SUPPLY_TECHNOLOGY_UNKNOWN)
 		msm_batt_info.batt_technology = POWER_SUPPLY_TECHNOLOGY_LION;

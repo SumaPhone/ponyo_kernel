@@ -198,10 +198,16 @@ static int get_battery_temperature(void)
 
 static int get_prop_batt_capacity(void)
 {
+    int capacity;
 	if (msm_batt_gauge && msm_batt_gauge->get_batt_remaining_capacity)
-		return msm_batt_gauge->get_batt_remaining_capacity();
+		capacity = msm_batt_gauge->get_batt_remaining_capacity();
+    else
+        capacity = msm_chg.get_batt_capacity_percent();
 
-	return msm_chg.get_batt_capacity_percent();
+    if(capacity <= 10)
+        pr_err("battery capacity very low = %d\n", capacity);
+
+	return capacity;
 }
 
 static int get_prop_batt_health(void)
@@ -485,6 +491,19 @@ static int msm_stop_charging(struct msm_hardware_charger_priv *priv)
 	return ret;
 }
 
+static void msm_enable_system_current(struct msm_hardware_charger_priv *priv)
+{
+	if (priv->hw_chg->start_system_current)
+		priv->hw_chg->start_system_current(priv->hw_chg,
+					 priv->max_source_current);
+}
+
+static void msm_disable_system_current(struct msm_hardware_charger_priv *priv)
+{
+	if (priv->hw_chg->stop_system_current)
+		priv->hw_chg->stop_system_current(priv->hw_chg);
+}
+
 /* the best charger has been selected -start charging from current_chg_priv */
 static int msm_start_charging(void)
 {
@@ -635,11 +654,17 @@ static void update_heartbeat(struct work_struct *work)
 /* set the charger state to READY before calling this */
 static void handle_charger_ready(struct msm_hardware_charger_priv *hw_chg_priv)
 {
+	struct msm_hardware_charger_priv *old_chg_priv = NULL;
+
 	debug_print(__func__, hw_chg_priv);
 
 	if (msm_chg.current_chg_priv != NULL
 	    && hw_chg_priv->hw_chg->rating >
 	    msm_chg.current_chg_priv->hw_chg->rating) {
+		/*
+		 * a better charger was found, ask the current charger
+		 * to stop charging if it was charging
+		 */
 		if (msm_chg.current_chg_priv->hw_chg_state ==
 		    CHG_CHARGING_STATE) {
 			if (msm_stop_charging(msm_chg.current_chg_priv)) {
@@ -654,6 +679,7 @@ static void handle_charger_ready(struct msm_hardware_charger_priv *hw_chg_priv)
 			}
 		}
 		msm_chg.current_chg_priv->hw_chg_state = CHG_READY_STATE;
+		old_chg_priv = msm_chg.current_chg_priv;
 		msm_chg.current_chg_priv = NULL;
 	}
 
@@ -662,6 +688,14 @@ static void handle_charger_ready(struct msm_hardware_charger_priv *hw_chg_priv)
 		dev_info(msm_chg.dev,
 			 "%s: best charger = %s\n", __func__,
 			 msm_chg.current_chg_priv->hw_chg->name);
+
+		msm_enable_system_current(msm_chg.current_chg_priv);
+		/*
+		 * since a better charger was chosen, ask the old
+		 * charger to stop providing system current
+		 */
+		if (old_chg_priv != NULL)
+			msm_disable_system_current(old_chg_priv);
 
 		if (!is_batt_status_capable_of_charging())
 			return;
@@ -698,6 +732,7 @@ static void handle_charger_removed(struct msm_hardware_charger_priv
 	debug_print(__func__, hw_chg_removed);
 
 	if (msm_chg.current_chg_priv == hw_chg_removed) {
+		msm_disable_system_current(hw_chg_removed);
 		if (msm_chg.current_chg_priv->hw_chg_state
 						== CHG_CHARGING_STATE) {
 			if (msm_stop_charging(hw_chg_removed)) {
@@ -722,6 +757,7 @@ static void handle_charger_removed(struct msm_hardware_charger_priv
 				msm_chg.batt_status = BATT_STATUS_DISCHARGING;
 		} else {
 			msm_chg.current_chg_priv = hw_chg_priv;
+			msm_enable_system_current(hw_chg_priv);
 			dev_info(msm_chg.dev,
 				 "%s: best charger = %s\n", __func__,
 				 msm_chg.current_chg_priv->hw_chg->name);
@@ -961,8 +997,6 @@ void msm_charger_vbus_draw(unsigned int mA)
 
 static int __init determine_initial_batt_status(void)
 {
-	int rc;
-
 	if (is_battery_present())
 		if (is_battery_id_valid())
 			if (is_battery_temp_within_range())
@@ -977,13 +1011,6 @@ static int __init determine_initial_batt_status(void)
 
 	if (is_batt_status_capable_of_charging())
 		handle_battery_inserted();
-
-	rc = power_supply_register(msm_chg.dev, &msm_psy_batt);
-	if (rc < 0) {
-		dev_err(msm_chg.dev, "%s: power_supply_register failed"
-			" rc=%d\n", __func__, rc);
-		return rc;
-	}
 
 	/* start updaing the battery powersupply every msm_chg.update_time
 	 * milliseconds */
@@ -1124,11 +1151,20 @@ EXPORT_SYMBOL(msm_charger_register);
 
 void msm_battery_gauge_register(struct msm_battery_gauge *batt_gauge)
 {
+	int rc;
+
 	if (msm_batt_gauge) {
 		msm_batt_gauge = batt_gauge;
 		pr_err("msm-charger %s multiple battery gauge called\n",
 								__func__);
 	} else {
+		rc = power_supply_register(msm_chg.dev, &msm_psy_batt);
+		if (rc < 0) {
+			dev_err(msm_chg.dev, "%s: power_supply_register failed"
+					" rc=%d\n", __func__, rc);
+			return;
+		}
+
 		msm_batt_gauge = batt_gauge;
 		determine_initial_batt_status();
 	}

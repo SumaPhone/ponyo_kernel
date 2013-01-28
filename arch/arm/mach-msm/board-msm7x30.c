@@ -174,6 +174,8 @@
 
 #define	PM_FLIP_MPP 5 /* PMIC MPP 06 */
 
+#define BATTERY_FULL 4170
+
 //[SIMT-caoxiangteng-110715]{
 /*
  *  add gpio i2c simulate for poyon
@@ -7271,7 +7273,7 @@ static void __init bt_power_init(void)
 
 static struct msm_psy_batt_pdata msm_psy_batt_data = {
 	.voltage_min_design 	= 3500,
-	.voltage_max_design	= 4350,
+	.voltage_max_design	= BATTERY_FULL,
 	.avail_chg_sources   	= AC_CHG | USB_CHG ,
 	.batt_technology        = POWER_SUPPLY_TECHNOLOGY_LION,
 };
