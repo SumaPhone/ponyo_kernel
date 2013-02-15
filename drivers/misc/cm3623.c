@@ -968,7 +968,7 @@ static ssize_t cm3623_ps_control_store(struct device *dev, struct device_attribu
 		if (state[CM3623_ALS] != CM3623_UP) {
 			state[CM3623_ALS] = CM3623_UP;
 			if ((rc = cm3623_up_als(sd)) < 0) {
-					return rc;
+					goto end;
 			}
 		}
 	}
@@ -976,17 +976,17 @@ static ssize_t cm3623_ps_control_store(struct device *dev, struct device_attribu
 		if (state[CM3623_ALS] != CM3623_DOWN) {
 			state[CM3623_ALS] = CM3623_DOWN;
 			if ((rc = cm3623_shutdown_als(sd)) < 0) {
-					return rc;
+					goto end;
 			}
 		}
 	}
-	if (!(rc = strncmp(buf, "ps_u", 4))) {
+	else if (!(rc = strncmp(buf, "ps_u", 4))) {
 		if (state[CM3623_PS] != CM3623_UP) {
 			state[CM3623_PS] = CM3623_UP;
 			if ((rc = cm3623_up_ps(sd)) < 0) {
 				if (sd->power) {
 					sd->power(0);
-					return rc;
+					goto end;
 				}
 			}
 		}
@@ -997,15 +997,16 @@ static ssize_t cm3623_ps_control_store(struct device *dev, struct device_attribu
 			if ((rc = cm3623_shutdown_ps(sd)) < 0) {
 				if (sd->power) {
 					sd->power(0);
-					return rc;
+					goto end;
 				}
 			}
 		}
 	}
 	else
-		rc = -1;
+		rc = -EINVAL;
+end:
 	mutex_unlock(&sd->lock);
-	return  rc;
+	return rc ? rc : size;
 }
 static DEVICE_ATTR(ps_control, 0220, NULL, cm3623_ps_control_store);
 
