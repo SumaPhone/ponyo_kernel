@@ -4582,6 +4582,11 @@ static struct i2c_board_info msm_i2c_board_info[] = {
                 I2C_BOARD_INFO(BMA250_DEV_NAME,BMA250_I2C_ADDR),
         },
 #endif
+#ifdef CONFIG_BATTERY_MAX17040_P01D
+	{
+                I2C_BOARD_INFO("max17040-p01d", 0x36), 
+	},
+#endif
 #ifdef CONFIG_BATTERY_MAX17040
         {
                 I2C_BOARD_INFO("max17040",0x36),
@@ -7271,11 +7276,22 @@ static void __init bt_power_init(void)
 #define bt_power_init(x) do {} while (0)
 #endif
 
+#ifdef CONFIG_BATTERY_MAX17040_P01D
+extern int max17040_p01d_get_capacity(void);
+static u32 msm_calculate_batt_capacity(u32 current_voltage)
+{
+  return max17040_p01d_get_capacity();
+}
+#endif
+
 static struct msm_psy_batt_pdata msm_psy_batt_data = {
 	.voltage_min_design 	= 3500,
 	.voltage_max_design	= BATTERY_FULL,
 	.avail_chg_sources   	= AC_CHG | USB_CHG ,
 	.batt_technology        = POWER_SUPPLY_TECHNOLOGY_LION,
+	#ifdef CONFIG_BATTERY_MAX17040_P01D
+	.calculate_capacity  = &msm_calculate_batt_capacity,
+	#endif
 };
 
 static struct platform_device msm_batt_device = {
