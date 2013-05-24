@@ -1,5 +1,4 @@
 /* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
- * Copyright (C) 2011 Sony Ericsson Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +18,6 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_device.h"
-#include "adreno_ringbuffer.h"
 
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
@@ -132,7 +130,7 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 	return ret;
 }
 
-static struct sysfs_ops mem_entry_sysfs_ops = {
+static const struct sysfs_ops mem_entry_sysfs_ops = {
 	.show = mem_entry_sysfs_show,
 };
 
@@ -151,6 +149,9 @@ static struct mem_entry_stats mem_stats[] = {
 	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_ASHMEM, ashmem),
 #endif
 	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_USER, user),
+#ifdef CONFIG_ION
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_USER, ion),
+#endif
 };
 
 void
@@ -235,7 +236,7 @@ DEVICE_ATTR(mapped, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(mapped_max, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(histogram, 0444, kgsl_drv_histogram_show, NULL);
 
-static struct device_attribute *drv_attr_list[] = {
+static const struct device_attribute *drv_attr_list[] = {
 	&dev_attr_vmalloc,
 	&dev_attr_vmalloc_max,
 	&dev_attr_coherent,
@@ -635,17 +636,13 @@ kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 			uint32_t *dst,
 			unsigned int offsetbytes)
 {
-	uint32_t *src;
 	BUG_ON(memdesc == NULL || memdesc->hostptr == NULL || dst == NULL);
-	WARN_ON(offsetbytes % sizeof(uint32_t) != 0);
-	if (offsetbytes % sizeof(uint32_t) != 0)
-		return -EINVAL;
+	WARN_ON(offsetbytes + sizeof(unsigned int) > memdesc->size);
 
-	WARN_ON(offsetbytes + sizeof(uint32_t) > memdesc->size);
-	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
+	if (offsetbytes + sizeof(unsigned int) > memdesc->size)
 		return -ERANGE;
-	src = (uint32_t *)(memdesc->hostptr + offsetbytes);
-	*dst = *src;
+
+	*dst = readl_relaxed(memdesc->hostptr + offsetbytes);
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_readl);
@@ -655,19 +652,12 @@ kgsl_sharedmem_writel(const struct kgsl_memdesc *memdesc,
 			unsigned int offsetbytes,
 			uint32_t src)
 {
-	uint32_t *dst;
 	BUG_ON(memdesc == NULL || memdesc->hostptr == NULL);
-	WARN_ON(offsetbytes % sizeof(uint32_t) != 0);
-	if (offsetbytes % sizeof(uint32_t) != 0)
-		return -EINVAL;
+	BUG_ON(offsetbytes + sizeof(unsigned int) > memdesc->size);
 
-	WARN_ON(offsetbytes + sizeof(uint32_t) > memdesc->size);
-	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
-		return -ERANGE;
 	kgsl_cffdump_setmem(memdesc->gpuaddr + offsetbytes,
-		src, sizeof(uint32_t));
-	dst = (uint32_t *)(memdesc->hostptr + offsetbytes);
-	*dst = src;
+		src, sizeof(uint));
+	writel_relaxed(src, memdesc->hostptr + offsetbytes);
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_writel);
