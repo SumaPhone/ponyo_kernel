@@ -410,6 +410,7 @@ void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
 		}
 		memdesc = &entry->memdesc;
 	}
+
 	src = (uint *)kgsl_gpuaddr_to_vaddr(memdesc, gpuaddr);
 	if (memdesc->hostptr == NULL) {
 		KGSL_CORE_ERR("no kernel mapping for "
